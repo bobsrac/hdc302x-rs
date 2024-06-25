@@ -1,0 +1,29 @@
+[package]
+name = "hdc302x-async"
+version = "0.1.0"
+authors = ["Matt Mahin <matt.mahin@gmail.com>"]
+repository = "https://github.com/bobsrac/hdc302x-rs"
+license = "MIT OR Apache-2.0"
+description = "An embedded-hal-async driver for the HDC302x(-Q1) low-power humidity and temperature digital sensor"
+readme = "README.md"
+keywords = [
+  "humidity",
+  "temperature",
+  "sensor",
+  "embedded-hal-driver"
+]
+categories = [
+  "embedded",
+  "hardware-support",
+  "no-std"
+]
+homepage = "https://github.com/bobsrac/hdc302x-rs-async"
+edition = "2021"
+
+[dependencies]
+crc = "3.2.1"
+embedded-hal-async = "1.0.0"
+log = "0.4.22"
+# num_enum = { version = "0.7.2", default-features = false }
+# defmt = { version = "0.3.8", optional = true }
+# nb = "1.1.0"

@@ -49,10 +49,50 @@
 //!   [HDC302x](https://www.ti.com/lit/ds/symlink/hdc3020.pdf)
 //!   [HDC302x-Q1](https://www.ti.com/lit/ds/symlink/hdc3020-q1.pdf)
 //!
-//! ## TODO: Usage examples
-//!
 //! To use this driver, import this crate and an `embedded_hal_async` implementation,
 //! then instantiate the device.
+//!
+//! ## Example:
+//!
+//! ```
+//! use hdc302x_async::{
+//!     Datum,
+//!     Hdc302x,
+//!     I2cAddr,
+//!     LowPowerMode,
+//! };
+//!
+//! // Platform-specific
+//! let i2c = /* embedded_hal_async::i2c::I2c instance */;
+//! let delay = /* embedded_hal_async::delay::DelayNs instance */;
+//!
+//! // Hdc302x
+//! let mut hdc302x = Hdc302x::new(i2c, delay, I2cAddr::Addr00);
+//!
+//! // Read and display a one-shot sample
+//! let raw_datum = hdc302x.one_shot(LowPowerMode::lowest_noise()).await.unwrap();
+//! println!("{:3} %RH, {:0.1} °C",
+//!     raw_datum.humidity_percent(),
+//!     raw_datum.centigrade());
+//!
+//! // Use auto mode to continuously sample and track the min/max temperature
+//! loop {
+//!     // stop and restart auto_mode to reset min/max values
+//!     hdc302x.auto_stop().await.unwrap();
+//!     hdc302x.auto_start(HdcSampleRate::Auto500mHz, HdcLowPowerMode::lowest_power()).await.unwrap();
+//!
+//!     // Platform-specific: sleep a while
+//!     sleep_secs(60);
+//!
+//!     // fetch the results from the hdc302x sensor
+//!     println!("min/max temperature: {:0.1} °C / {:0.1} °C",
+//!         hdc302x.auto_read(HdcAutoReadTarget::MinTemp).await.unwrap().centigrade().unwrap(),
+//!         hdc302x.auto_read(HdcAutoReadTarget::MaxTemp).await.unwrap().centigrade().unwrap());
+//!     println!("min/max relative humidity: {:0.1} % / {:0.1} %",
+//!         hdc302x.auto_read(HdcAutoReadTarget::MinRelHumid).await.unwrap().humidity_percent().unwrap(),
+//!         hdc302x.auto_read(HdcAutoReadTarget::MaxRelHumid).await.unwrap().humidity_percent().unwrap());
+//! }
+//! ```
 
 #![deny(missing_docs)]
 #![deny(unsafe_code)]

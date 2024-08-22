@@ -35,6 +35,39 @@ pub enum RawDatum {
     /// maximum relative humidity since auto mode was enabled
     MaxRelHumid(u16),
 }
+impl RawDatum {
+    /// Get temperature in Fahrenheit
+    pub fn fahrenheit(&self) -> Option<f32> {
+        match self {
+            Self::TempAndRelHumid(RawTempAndRelHumid{temperature, ..}) => Some(raw_temp_to_fahrenheit(*temperature)),
+            Self::MinTemp(u16) => Some(raw_temp_to_fahrenheit(*u16)),
+            Self::MaxTemp(u16) => Some(raw_temp_to_fahrenheit(*u16)),
+            Self::MinRelHumid(_) => None,
+            Self::MaxRelHumid(_) => None,
+        }
+    }
+    /// Get temperature in Centigrade
+    pub fn centigrade(&self) -> Option<f32> {
+        match self {
+            Self::TempAndRelHumid(RawTempAndRelHumid{temperature, ..}) => Some(raw_temp_to_centigrade(*temperature)),
+            Self::MinTemp(u16) => Some(raw_temp_to_centigrade(*u16)),
+            Self::MaxTemp(u16) => Some(raw_temp_to_centigrade(*u16)),
+            Self::MinRelHumid(_) => None,
+            Self::MaxRelHumid(_) => None,
+        }
+    }
+    /// Get relative humidity in percent
+    pub fn humidity_percent(&self) -> Option<f32> {
+        match self {
+            Self::TempAndRelHumid(_) => None,
+            Self::MinTemp(_) => None,
+            Self::MaxTemp(_) => None,
+            Self::MinRelHumid(u16) => Some(raw_rel_humid_to_percent(*u16)),
+            Self::MaxRelHumid(u16) => Some(raw_rel_humid_to_percent(*u16)),
+        }
+    }
+}
+
 /// Raw (still in u16 format) temperature and relative humidity from the device
 #[derive(Debug)]
 pub struct RawTempAndRelHumid{
@@ -42,6 +75,20 @@ pub struct RawTempAndRelHumid{
     pub temperature: u16,
     /// unprocessed relative humiodity
     pub humidity: u16,
+}
+impl RawTempAndRelHumid {
+    /// Get temperature in Fahrenheit
+    pub fn fahrenheit(&self) -> f32 {
+        raw_temp_to_fahrenheit(self.temperature)
+    }
+    /// Get temperature in Centigrade
+    pub fn centigrade(&self) -> f32 {
+        raw_temp_to_centigrade(self.temperature)
+    }
+    /// Get relative humidity in percent
+    pub fn humidity_percent(&self) -> f32 {
+        raw_rel_humid_to_percent(self.humidity)
+    }
 }
 
 /// Temp and/or humidity from the device after conversion
@@ -100,8 +147,8 @@ pub struct Temp{
 impl From<u16> for Temp {
     fn from(raw: u16) -> Self {
         Self {
-            centigrade: -45.0 + (175.0 * (raw as f32) / 65535.0),
-            fahrenheit: -49.0 + (315.0 * (raw as f32) / 65535.0),
+            centigrade: raw_temp_to_centigrade(raw),
+            fahrenheit: raw_temp_to_fahrenheit(raw),
         }
     }
 }

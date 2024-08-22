@@ -10,3 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - embedded-hal-async driver for HDC302x(-Q1) temp/RH sensor
+
+## [0.2.0](https://github.com/bobsrac/hdc302x-rs/releases/tag/v0.2.0) - 2024-08-21
+
+### Other
+
+- added processing fns to RawDatum and a usage example for docs.rs front page

@@ -1,6 +1,6 @@
 [package]
 name = "hdc302x-async"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Matt Mahin <matt.mahin@gmail.com>"]
 repository = "https://github.com/bobsrac/hdc302x-rs"
 license = "MIT OR Apache-2.0"

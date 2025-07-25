@@ -65,7 +65,7 @@ impl RawDatum {
     /// Get relative humidity in percent
     pub fn humidity_percent(&self) -> Option<f32> {
         match self {
-            Self::TempAndRelHumid(_) => None,
+            Self::TempAndRelHumid(RawTempAndRelHumid{humidity, ..}) => Some(raw_rel_humid_to_percent(*humidity)),
             Self::MinTemp(_) => None,
             Self::MaxTemp(_) => None,
             Self::MinRelHumid(u16) => Some(raw_rel_humid_to_percent(*u16)),

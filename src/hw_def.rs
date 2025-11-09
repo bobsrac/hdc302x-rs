@@ -1,3 +1,6 @@
+#[cfg(feature="defmt")]
+use defmt::Format;
+
 /// I2C device address options, which are selected via the ADDR1 and ADDR pins.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]

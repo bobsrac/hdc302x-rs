@@ -2,7 +2,7 @@
 
 This is a platform-agnostic Rust driver for the HDC3020, HDC3021, HDC3022, HDC3020-Q1,
 HDC3021-Q1 and HDC3022-Q1 low-power humidity and temperature digital sensors using
-the [`embedded-hal-async`] traits. This is current no support for a blocking API.
+the [`embedded-hal-async`] traits.
 This driver was inspired by [Diego Barrios Romero's hdc20xx-rs driver](https://github.com/eldruin/hdc20xx-rs).
 
 [`embedded-hal-async`]: https://github.com/rust-embedded/embedded-hal/tree/master/embedded-hal-async

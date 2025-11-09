@@ -48,15 +48,15 @@ where
             let mut read_buf = [0u8; 6];
             let read_buf_slice = &mut read_buf[0..(3 * num_vals)];
             trace!("hdc302x::cmd_and_read(): read_buf_slice.len()={}", read_buf_slice.len());
-            if let Err(_) = self.i2c.write_read(self.i2c_addr.as_u8(), cmd_bytes, read_buf_slice) {
+            if self.i2c.write_read(self.i2c_addr.as_u8(), cmd_bytes, read_buf_slice).is_err() {
                 // TODO: consider a timeout and/or retry limit
-                while let Err(_) = self.i2c.read(self.i2c_addr.as_u8(), read_buf_slice) {
+                while self.i2c.read(self.i2c_addr.as_u8(), read_buf_slice).is_err() {
                     self.delay.delay_ms(1);
-                };
-            };
+                }
+            }
             // TODO: consider whether to retry around this failure
             for ii in 0..num_vals {
-                let read_word = &read_buf[ii*3+0..=ii*3+1];
+                let read_word = &read_buf[ii*3..=ii*3+1];
                 cfg_if! {
                     if #[cfg(feature = "crc")] {
                         let read_crc = &read_buf[ii*3+2];
@@ -99,7 +99,7 @@ where
 
     /// exit auto mode and return to sleep
     pub fn auto_stop(&mut self) -> Result<(), Error<E>> {
-        self.cmd_and_read(&Command::AutoExit.to_be_bytes(), &mut [0u16; 0])?;
+        self.cmd_and_read(&Command::AutoExit.as_be_bytes(), &mut [0u16; 0])?;
         Ok(())
     }
 
@@ -111,7 +111,7 @@ where
             AutoReadTarget::MaxTemp => Command::AutoReadMaxTemp,
             AutoReadTarget::MinRelHumid => Command::AutoReadMinRelHumid,
             AutoReadTarget::MaxRelHumid => Command::AutoReadMaxRelHumid,
-        }.to_be_bytes();
+        }.as_be_bytes();
 
         let mut read_buf = [0u16; 2];
         let read_buf_slice = match target {
@@ -138,16 +138,16 @@ where
 
     /// Condensation heater
     pub fn heater(&mut self, heater_level: HeaterLevel) -> Result<(), Error<E>> {
-        self.cmd_and_read(&Command::HeaterDisable.to_be_bytes(), &mut [0u16; 0])?;
+        self.cmd_and_read(&Command::HeaterDisable.as_be_bytes(), &mut [0u16; 0])?;
 
         if let Some(setting) = heater_level.setting() {
             let mut cmd_bytes = [0u8; 4];
-            cmd_bytes[0..2].copy_from_slice(&Command::HeaterConfig.to_be_bytes());
+            cmd_bytes[0..2].copy_from_slice(&Command::HeaterConfig.as_be_bytes());
             cmd_bytes[2..4].copy_from_slice(&setting.to_be_bytes());
             if let Err(i2c_err) = self.i2c.write(self.i2c_addr.as_u8(), &cmd_bytes) {
                 return Err(Error::I2c(i2c_err));
             }
-            self.cmd_and_read(&Command::HeaterEnable.to_be_bytes(), &mut [0u16; 0])?;
+            self.cmd_and_read(&Command::HeaterEnable.as_be_bytes(), &mut [0u16; 0])?;
         }
         Ok(())
     }
@@ -155,9 +155,9 @@ where
     /// Read and optionally clear status bits
     pub fn read_status(&mut self, clear: bool) -> Result<StatusBits, Error<E>> {
         let mut read_buf = [0u16; 1];
-        self.cmd_and_read(&Command::StatusRead.to_be_bytes(), &mut read_buf)?;
+        self.cmd_and_read(&Command::StatusRead.as_be_bytes(), &mut read_buf)?;
         if clear {
-            self.cmd_and_read(&Command::StatusClear.to_be_bytes(), &mut [0u16; 0])?;
+            self.cmd_and_read(&Command::StatusClear.as_be_bytes(), &mut [0u16; 0])?;
         }
 
         Ok(StatusBits::from(read_buf[0]))
@@ -167,13 +167,13 @@ where
     pub fn read_serial_number(&mut self) -> Result<SerialNumber, Error<E>> {
         let mut temp_u16 = [0u16; 1];
         let mut bytes= [0u8; 6];
-        self.cmd_and_read(&Command::SerialID54.to_be_bytes(), &mut temp_u16)?;
+        self.cmd_and_read(&Command::SerialID54.as_be_bytes(), &mut temp_u16)?;
         bytes[5] = (temp_u16[0] >> 8) as u8;
         bytes[4] = temp_u16[0] as u8;
-        self.cmd_and_read(&Command::SerialID32.to_be_bytes(), &mut temp_u16)?;
+        self.cmd_and_read(&Command::SerialID32.as_be_bytes(), &mut temp_u16)?;
         bytes[3] = (temp_u16[0] >> 8) as u8;
         bytes[2] = temp_u16[0] as u8;
-        self.cmd_and_read(&Command::SerialID10.to_be_bytes(), &mut temp_u16)?;
+        self.cmd_and_read(&Command::SerialID10.as_be_bytes(), &mut temp_u16)?;
         bytes[1] = (temp_u16[0] >> 8) as u8;
         bytes[0] = temp_u16[0] as u8;
         Ok(SerialNumber(bytes))
@@ -182,13 +182,13 @@ where
     /// Read the NIST-tracable manufacturer ID
     pub fn read_manufacturer_id(&mut self) -> Result<ManufacturerId, Error<E>> {
         let mut read_buf = [0u16; 1];
-        self.cmd_and_read(&Command::ManufacturerID.to_be_bytes(), &mut read_buf)?;
+        self.cmd_and_read(&Command::ManufacturerID.as_be_bytes(), &mut read_buf)?;
         Ok(ManufacturerId::from(read_buf[0]))
     }
 
     /// software reset
     pub fn software_reset(&mut self) -> Result<(), Error<E>> {
-        self.cmd_and_read(&Command::SoftReset.to_be_bytes(), &mut [0u16; 0])?;
+        self.cmd_and_read(&Command::SoftReset.as_be_bytes(), &mut [0u16; 0])?;
         Ok(())
     }
 
@@ -234,15 +234,15 @@ where
             let mut read_buf = [0u8; 6];
             let read_buf_slice = &mut read_buf[0..(3 * num_vals)];
             trace!("hdc302x::cmd_and_read_async(): read_buf_slice.len()={}", read_buf_slice.len());
-            if let Err(_) = self.i2c.write_read(self.i2c_addr.as_u8(), cmd_bytes, read_buf_slice).await {
+            if self.i2c.write_read(self.i2c_addr.as_u8(), cmd_bytes, read_buf_slice).await.is_err() {
                 // TODO: consider a timeout and/or retry limit
-                while let Err(_) = self.i2c.read(self.i2c_addr.as_u8(), read_buf_slice).await {
+                if self.i2c.read(self.i2c_addr.as_u8(), read_buf_slice).await.is_err() {
                     self.delay.delay_ms(1).await;
-                };
-            };
+                }
+            }
             // TODO: consider whether to retry around this failure
             for ii in 0..num_vals {
-                let read_word = &read_buf[ii*3+0..=ii*3+1];
+                let read_word = &read_buf[ii*3..=ii*3+1];
                 cfg_if! {
                     if #[cfg(feature = "crc")] {
                         let read_crc = &read_buf[ii*3+2];
@@ -285,7 +285,7 @@ where
 
     /// exit auto mode and return to sleep
     pub async fn auto_stop_async(&mut self) -> Result<(), Error<E>> {
-        self.cmd_and_read_async(&Command::AutoExit.to_be_bytes(), &mut [0u16; 0]).await?;
+        self.cmd_and_read_async(&Command::AutoExit.as_be_bytes(), &mut [0u16; 0]).await?;
         Ok(())
     }
 
@@ -297,7 +297,7 @@ where
             AutoReadTarget::MaxTemp => Command::AutoReadMaxTemp,
             AutoReadTarget::MinRelHumid => Command::AutoReadMinRelHumid,
             AutoReadTarget::MaxRelHumid => Command::AutoReadMaxRelHumid,
-        }.to_be_bytes();
+        }.as_be_bytes();
 
         let mut read_buf = [0u16; 2];
         let read_buf_slice = match target {
@@ -324,16 +324,16 @@ where
 
     /// Condensation heater
     pub async fn heater_async(&mut self, heater_level: HeaterLevel) -> Result<(), Error<E>> {
-        self.cmd_and_read_async(&Command::HeaterDisable.to_be_bytes(), &mut [0u16; 0]).await?;
+        self.cmd_and_read_async(&Command::HeaterDisable.as_be_bytes(), &mut [0u16; 0]).await?;
 
         if let Some(setting) = heater_level.setting() {
             let mut cmd_bytes = [0u8; 4];
-            cmd_bytes[0..2].copy_from_slice(&Command::HeaterConfig.to_be_bytes());
+            cmd_bytes[0..2].copy_from_slice(&Command::HeaterConfig.as_be_bytes());
             cmd_bytes[2..4].copy_from_slice(&setting.to_be_bytes());
             if let Err(i2c_err) = self.i2c.write(self.i2c_addr.as_u8(), &cmd_bytes).await {
                 return Err(Error::I2c(i2c_err));
             }
-            self.cmd_and_read_async(&Command::HeaterEnable.to_be_bytes(), &mut [0u16; 0]).await?;
+            self.cmd_and_read_async(&Command::HeaterEnable.as_be_bytes(), &mut [0u16; 0]).await?;
         }
         Ok(())
     }
@@ -341,9 +341,9 @@ where
     /// Read and optionally clear status bits
     pub async fn read_status_async(&mut self, clear: bool) -> Result<StatusBits, Error<E>> {
         let mut read_buf = [0u16; 1];
-        self.cmd_and_read_async(&Command::StatusRead.to_be_bytes(), &mut read_buf).await?;
+        self.cmd_and_read_async(&Command::StatusRead.as_be_bytes(), &mut read_buf).await?;
         if clear {
-            self.cmd_and_read_async(&Command::StatusClear.to_be_bytes(), &mut [0u16; 0]).await?;
+            self.cmd_and_read_async(&Command::StatusClear.as_be_bytes(), &mut [0u16; 0]).await?;
         }
 
         Ok(StatusBits::from(read_buf[0]))
@@ -353,13 +353,13 @@ where
     pub async fn read_serial_number_async(&mut self) -> Result<SerialNumber, Error<E>> {
         let mut temp_u16 = [0u16; 1];
         let mut bytes= [0u8; 6];
-        self.cmd_and_read_async(&Command::SerialID54.to_be_bytes(), &mut temp_u16).await?;
+        self.cmd_and_read_async(&Command::SerialID54.as_be_bytes(), &mut temp_u16).await?;
         bytes[5] = (temp_u16[0] >> 8) as u8;
         bytes[4] = temp_u16[0] as u8;
-        self.cmd_and_read_async(&Command::SerialID32.to_be_bytes(), &mut temp_u16).await?;
+        self.cmd_and_read_async(&Command::SerialID32.as_be_bytes(), &mut temp_u16).await?;
         bytes[3] = (temp_u16[0] >> 8) as u8;
         bytes[2] = temp_u16[0] as u8;
-        self.cmd_and_read_async(&Command::SerialID10.to_be_bytes(), &mut temp_u16).await?;
+        self.cmd_and_read_async(&Command::SerialID10.as_be_bytes(), &mut temp_u16).await?;
         bytes[1] = (temp_u16[0] >> 8) as u8;
         bytes[0] = temp_u16[0] as u8;
         Ok(SerialNumber(bytes))
@@ -368,13 +368,13 @@ where
     /// Read the NIST-tracable manufacturer ID
     pub async fn read_manufacturer_id_async(&mut self) -> Result<ManufacturerId, Error<E>> {
         let mut read_buf = [0u16; 1];
-        self.cmd_and_read_async(&Command::ManufacturerID.to_be_bytes(), &mut read_buf).await?;
+        self.cmd_and_read_async(&Command::ManufacturerID.as_be_bytes(), &mut read_buf).await?;
         Ok(ManufacturerId::from(read_buf[0]))
     }
 
     /// software reset
     pub async fn software_reset_async(&mut self) -> Result<(), Error<E>> {
-        self.cmd_and_read_async(&Command::SoftReset.to_be_bytes(), &mut [0u16; 0]).await?;
+        self.cmd_and_read_async(&Command::SoftReset.as_be_bytes(), &mut [0u16; 0]).await?;
         Ok(())
     }
 

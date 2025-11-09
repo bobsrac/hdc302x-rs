@@ -6,7 +6,12 @@ use core::fmt;
 use defmt::Format;
 
 /// HDC302x(-Q1) device driver
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
+#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub struct Hdc302x<I2C, Delay> {
     pub(crate) i2c: I2C,
     pub(crate) delay: Delay,
@@ -14,7 +19,10 @@ pub struct Hdc302x<I2C, Delay> {
 }
 
 /// All possible errors in this crate
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 #[derive(Debug)]
 pub enum Error<E> {
     /// I²C communication error
@@ -27,8 +35,12 @@ pub enum Error<E> {
 }
 
 /// Raw (still in u16 format) temperature and/or humidity from the device
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum RawDatum {
     /// temerature and relative humidity from one-shot or auto mode
     TempAndRelHumid(RawTempAndRelHumid),
@@ -75,8 +87,13 @@ impl RawDatum {
 }
 
 /// Raw (still in u16 format) temperature and relative humidity from the device
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 #[derive(Debug)]
+#[derive(Default)]
+#[derive(PartialEq)]
 pub struct RawTempAndRelHumid{
     /// unprocessed temperature
     pub temperature: u16,
@@ -99,8 +116,12 @@ impl RawTempAndRelHumid {
 }
 
 /// Temp and/or humidity from the device after conversion
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 #[derive(Debug)]
+#[derive(PartialEq)]
 pub enum Datum {
     /// temerature and relative humidity from one-shot or auto mode
     TempAndRelHumid(TempAndRelHumid),
@@ -126,8 +147,13 @@ impl From<&RawDatum> for Datum {
 }
 
 /// Temp and relative humidity from the device after conversion
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 #[derive(Debug)]
+#[derive(Default)]
+#[derive(PartialEq)]
 pub struct TempAndRelHumid {
     /// degrees centigrade
     pub centigrade: f32,
@@ -146,8 +172,13 @@ impl From<&RawTempAndRelHumid> for TempAndRelHumid {
     }
 }
 /// Temp after conversion
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
 #[derive(Debug)]
+#[derive(Default)]
+#[derive(PartialEq)]
 pub struct Temp{
     /// degrees centigrade
     pub centigrade: f32,
@@ -164,8 +195,13 @@ impl From<u16> for Temp {
 }
 
 /// Status bits from the device
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Default)]
+#[derive(PartialEq)]
 pub struct StatusBits {
     raw: u16,
     /// at least one alert is active
@@ -251,7 +287,13 @@ impl fmt::Display for StatusBits {
 
 
 /// Serial number of the device
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Default)]
+#[derive(PartialEq)]
 pub struct SerialNumber(pub [u8; 6]);
 impl fmt::Display for SerialNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -261,12 +303,30 @@ impl fmt::Display for SerialNumber {
         Ok(())
     }
 }
+impl core::ops::Deref for SerialNumber {
+    type Target = [u8; 6];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl AsRef<[u8; 6]> for SerialNumber {
+    fn as_ref(&self) -> &[u8; 6] {
+        &self.0
+    }
+}
 
 /// Manufacturer ID of the device
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
-#[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Default)]
+#[derive(PartialEq)]
 pub enum ManufacturerId {
     /// Texas Instruments
+    #[default]
     TexasInstruments,
     /// Other
     Other(u16),
@@ -279,9 +339,9 @@ impl From<u16> for ManufacturerId {
         }
     }
 }
-impl Into<u16> for ManufacturerId {
-    fn into(self) -> u16 {
-        match self {
+impl From<ManufacturerId> for u16 {
+    fn from(manuf_id: ManufacturerId) -> u16 {
+        match manuf_id {
             ManufacturerId::TexasInstruments => MANUFACTURER_ID_TEXAS_INSTRUMENTS,
             ManufacturerId::Other(id) => id,
         }
@@ -291,7 +351,7 @@ impl fmt::Display for ManufacturerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ManufacturerId::TexasInstruments => {
-                let mid_u16: u16 = (*self).into();
+                let mid_u16: u16 = self.clone().into();
                 write!(f, "Texas Instruments (0x{mid_u16:04X})")
             }
             ManufacturerId::Other(mid_u16) => write!(f, "Unknown (0x{mid_u16:04X})"),

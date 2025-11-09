@@ -1,5 +1,10 @@
 /// I2C device address options, which are selected via the ADDR1 and ADDR pins.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
+#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum I2cAddr {
     /// ADDR1 = 0, ADDR0 = 0
     Addr00 = 0x44,
@@ -22,7 +27,12 @@ impl I2cAddr {
 }
 
 /// Sample rate options, covering both the one-shot and auto modes.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
+#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum SampleRate {
     /// initiate and read a single measurement, returning device back to sleep afterward
     OneShot,
@@ -39,7 +49,12 @@ pub enum SampleRate {
 }
 
 /// Low power mode options, which control the trade-off between power consumption, measurement noise, and sample latency.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
+#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum LowPowerMode {
     /// lowest noise
     LPM0,
@@ -70,7 +85,12 @@ impl LowPowerMode {
 }
 
 /// Options for what to read from the device when in auto mode.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
+#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum AutoReadTarget {
     /// most recently sampled temperature and relative humidity
     LastTempAndRelHumid,
@@ -85,9 +105,16 @@ pub enum AutoReadTarget {
 }
 
 /// Options for the on-device heater.  The datasheet claims this may be useful to drive off condensation.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
+#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(Default)]
+#[derive(PartialEq)]
 pub enum HeaterLevel{
     /// heater off (post-reset default)
+    #[default]
     Off,
     /// heater on at 25% power
     On25Percent,
@@ -165,7 +192,12 @@ pub(crate) fn reset_state_value(sample_rate: SampleRate, low_power_mode: LowPowe
 }
 
 // TODO: disable allow(unusued)
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "bincode", derive(Encode, Decode))]
+#[cfg_attr(feature = "defmt", derive(Format))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Clone)]
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub(crate) enum Command {
     AutoExit,
     AutoReadTempAndRelHumid,
@@ -216,7 +248,7 @@ pub(crate) enum Command {
     ResetState,
 }
 impl Command {
-    pub(crate) fn to_be_bytes(&self) -> [u8; 2] {
+    pub(crate) fn as_be_bytes(&self) -> [u8; 2] {
         match self {
             Self::AutoExit => 0x3093_u16,
             Self::AutoReadTempAndRelHumid => 0xe000_u16,

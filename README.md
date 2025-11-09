@@ -18,7 +18,8 @@ This driver allows you to:
 - Read the manufacturer ID.
 - Read the device serial number.
 - Read and optionally clear the device status bits.
-- async support.
+- async API support.
+- Blocking API support.
 
 This driver does not yet support the following device features:
 
@@ -27,7 +28,6 @@ This driver does not yet support the following device features:
   offsets).
 - Configuration of post-reset state (default behavior after power-on and software
   reset).
-- Blocking API support.
 
 ## Supported devices: HDC3020, HDC3021, HDC3022, HDC3020-Q1, HDC3021-Q1, HDC3022-Q1
 
@@ -59,12 +59,11 @@ Datasheets:
 
 ## Usage examples
 
-To use this driver, import this crate and an `embedded_hal_async` implementation,
-then instantiate the device.
+See the examples folder.
 
 ## Future Work
 
-- Blocking API
+- bug: First auto-timed sample returns invalid data (max is minval, and min is maxval)
 
 ## License
 

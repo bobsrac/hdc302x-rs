@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Update the optional `defmt` integration to 1.1.1, removing an upstream
+  future-incompatibility warning. Applications that enable this feature must
+  resolve `defmt` 1.1.1 or later.
 - Correct automatic-mode documentation: the first completed sample is valid;
   unavailable or consumed latest results are reported as I²C errors.
 - Document the hardware-validated HDC3022 behavior that `auto_stop` clears

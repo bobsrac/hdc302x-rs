@@ -481,6 +481,116 @@ mod blocking_scripted_i2c_tests {
     }
 
     #[test]
+    fn automatic_window_uses_start_reads_then_stop_sequence() {
+        let mut hdc = Hdc302x::new(
+            RecordingI2c {
+                read_frames: vec![
+                    crc_word(0x1000),
+                    crc_word(0x2000),
+                    crc_word(0x3000),
+                    crc_word(0x4000),
+                ],
+                ..RecordingI2c::default()
+            },
+            ImmediateDelay,
+            I2cAddr::Addr00,
+        );
+
+        hdc.auto_start(SampleRate::Auto500mHz, LowPowerMode::LPM0)
+            .unwrap();
+        hdc.auto_read(AutoReadTarget::MinTemp).unwrap();
+        hdc.auto_read(AutoReadTarget::MaxTemp).unwrap();
+        hdc.auto_read(AutoReadTarget::MinRelHumid).unwrap();
+        hdc.auto_read(AutoReadTarget::MaxRelHumid).unwrap();
+        hdc.auto_stop().unwrap();
+
+        assert_eq!(
+            hdc.i2c.writes,
+            vec![
+                (0x44, vec![0x20, 0x32]),
+                (0x44, vec![0xe0, 0x02]),
+                (0x44, vec![0xe0, 0x03]),
+                (0x44, vec![0xe0, 0x04]),
+                (0x44, vec![0xe0, 0x05]),
+                (0x44, vec![0x30, 0x93]),
+            ]
+        );
+        assert!(hdc.i2c.read_frames.is_empty());
+    }
+
+    #[test]
+    fn automatic_i2c_errors_leave_driver_consumable() {
+        let mut hdc = Hdc302x::new(
+            RecordingI2c {
+                fail_on_write: Some(1),
+                ..RecordingI2c::default()
+            },
+            ImmediateDelay,
+            I2cAddr::Addr00,
+        );
+
+        assert!(matches!(
+            hdc.auto_start(SampleRate::Auto500mHz, LowPowerMode::LPM0),
+            Err(Error::I2c(ScriptError::DataNack))
+        ));
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(i2c.writes, vec![(0x44, vec![0x20, 0x32])]);
+        assert_eq!(address, I2cAddr::Addr00);
+
+        for (target, command) in [
+            (AutoReadTarget::LastTempAndRelHumid, [0xe0, 0x00]),
+            (AutoReadTarget::MinTemp, [0xe0, 0x02]),
+            (AutoReadTarget::MaxTemp, [0xe0, 0x03]),
+            (AutoReadTarget::MinRelHumid, [0xe0, 0x04]),
+            (AutoReadTarget::MaxRelHumid, [0xe0, 0x05]),
+        ] {
+            let mut hdc = Hdc302x::new(
+                RecordingI2c {
+                    nack_reads: true,
+                    ..RecordingI2c::default()
+                },
+                ImmediateDelay,
+                I2cAddr::Addr00,
+            );
+
+            hdc.auto_start(SampleRate::Auto500mHz, LowPowerMode::LPM0)
+                .unwrap();
+            assert!(matches!(
+                hdc.auto_read(target),
+                Err(Error::I2c(ScriptError::DataNack))
+            ));
+            let (i2c, _delay, address) = hdc.into_parts();
+            assert_eq!(
+                i2c.writes,
+                vec![(0x44, vec![0x20, 0x32]), (0x44, command.to_vec())]
+            );
+            assert_eq!(address, I2cAddr::Addr00);
+        }
+
+        let mut hdc = Hdc302x::new(
+            RecordingI2c {
+                fail_on_write: Some(2),
+                ..RecordingI2c::default()
+            },
+            ImmediateDelay,
+            I2cAddr::Addr00,
+        );
+
+        hdc.auto_start(SampleRate::Auto500mHz, LowPowerMode::LPM0)
+            .unwrap();
+        assert!(matches!(
+            hdc.auto_stop(),
+            Err(Error::I2c(ScriptError::DataNack))
+        ));
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(
+            i2c.writes,
+            vec![(0x44, vec![0x20, 0x32]), (0x44, vec![0x30, 0x93])]
+        );
+        assert_eq!(address, I2cAddr::Addr00);
+    }
+
+    #[test]
     fn status_reset_identity_and_auto_stop_use_the_documented_sequence() {
         let mut hdc = Hdc302x::new(
             RecordingI2c {
@@ -802,6 +912,113 @@ mod async_scripted_i2c_tests {
             assert_eq!(hdc.i2c.writes, vec![(0x44, command.to_vec())]);
             assert!(hdc.i2c.read_frames.is_empty());
         }
+    }
+
+    #[test]
+    fn automatic_window_uses_start_reads_then_stop_sequence() {
+        let mut hdc = Hdc302x::new(
+            RecordingI2c {
+                read_frames: vec![
+                    crc_word(0x1000),
+                    crc_word(0x2000),
+                    crc_word(0x3000),
+                    crc_word(0x4000),
+                ],
+                ..RecordingI2c::default()
+            },
+            ImmediateDelay,
+            I2cAddr::Addr00,
+        );
+
+        block_on(hdc.auto_start_async(SampleRate::Auto500mHz, LowPowerMode::LPM0)).unwrap();
+        block_on(hdc.auto_read_async(AutoReadTarget::MinTemp)).unwrap();
+        block_on(hdc.auto_read_async(AutoReadTarget::MaxTemp)).unwrap();
+        block_on(hdc.auto_read_async(AutoReadTarget::MinRelHumid)).unwrap();
+        block_on(hdc.auto_read_async(AutoReadTarget::MaxRelHumid)).unwrap();
+        block_on(hdc.auto_stop_async()).unwrap();
+
+        assert_eq!(
+            hdc.i2c.writes,
+            vec![
+                (0x44, vec![0x20, 0x32]),
+                (0x44, vec![0xe0, 0x02]),
+                (0x44, vec![0xe0, 0x03]),
+                (0x44, vec![0xe0, 0x04]),
+                (0x44, vec![0xe0, 0x05]),
+                (0x44, vec![0x30, 0x93]),
+            ]
+        );
+        assert!(hdc.i2c.read_frames.is_empty());
+    }
+
+    #[test]
+    fn automatic_i2c_errors_leave_driver_consumable() {
+        let mut hdc = Hdc302x::new(
+            RecordingI2c {
+                fail_on_write: Some(1),
+                ..RecordingI2c::default()
+            },
+            ImmediateDelay,
+            I2cAddr::Addr00,
+        );
+
+        assert!(matches!(
+            block_on(hdc.auto_start_async(SampleRate::Auto500mHz, LowPowerMode::LPM0)),
+            Err(Error::I2c(ScriptError::DataNack))
+        ));
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(i2c.writes, vec![(0x44, vec![0x20, 0x32])]);
+        assert_eq!(address, I2cAddr::Addr00);
+
+        for (target, command) in [
+            (AutoReadTarget::LastTempAndRelHumid, [0xe0, 0x00]),
+            (AutoReadTarget::MinTemp, [0xe0, 0x02]),
+            (AutoReadTarget::MaxTemp, [0xe0, 0x03]),
+            (AutoReadTarget::MinRelHumid, [0xe0, 0x04]),
+            (AutoReadTarget::MaxRelHumid, [0xe0, 0x05]),
+        ] {
+            let mut hdc = Hdc302x::new(
+                RecordingI2c {
+                    nack_reads: true,
+                    ..RecordingI2c::default()
+                },
+                ImmediateDelay,
+                I2cAddr::Addr00,
+            );
+
+            block_on(hdc.auto_start_async(SampleRate::Auto500mHz, LowPowerMode::LPM0)).unwrap();
+            assert!(matches!(
+                block_on(hdc.auto_read_async(target)),
+                Err(Error::I2c(ScriptError::DataNack))
+            ));
+            let (i2c, _delay, address) = hdc.into_parts();
+            assert_eq!(
+                i2c.writes,
+                vec![(0x44, vec![0x20, 0x32]), (0x44, command.to_vec())]
+            );
+            assert_eq!(address, I2cAddr::Addr00);
+        }
+
+        let mut hdc = Hdc302x::new(
+            RecordingI2c {
+                fail_on_write: Some(2),
+                ..RecordingI2c::default()
+            },
+            ImmediateDelay,
+            I2cAddr::Addr00,
+        );
+
+        block_on(hdc.auto_start_async(SampleRate::Auto500mHz, LowPowerMode::LPM0)).unwrap();
+        assert!(matches!(
+            block_on(hdc.auto_stop_async()),
+            Err(Error::I2c(ScriptError::DataNack))
+        ));
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(
+            i2c.writes,
+            vec![(0x44, vec![0x20, 0x32]), (0x44, vec![0x30, 0x93])]
+        );
+        assert_eq!(address, I2cAddr::Addr00);
     }
 
     #[test]

@@ -1,6 +1,6 @@
 [package]
 name = "hdc302x"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Matt Mahin <matt.mahin@gmail.com>"]
 repository = "https://github.com/bobsrac/hdc302x-rs"
 license = "MIT OR Apache-2.0"
@@ -20,6 +20,7 @@ categories = [
 ]
 homepage = "https://github.com/bobsrac/hdc302x-rs"
 edition = "2024"
+rust-version = "1.85"
 
 [dependencies]
 bincode = { version = "2.0.1", optional = true, default-features = false, features = ["derive"] }

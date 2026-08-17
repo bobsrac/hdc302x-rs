@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-16
+
 ### Added
 
 - Add `Hdc302x::into_parts` to return constructor resources for
@@ -30,6 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document status-clear ordering, serial-number byte/display ordering, and the
   boundary between validated heater protocol behavior and unmeasured thermal
   output; correct public prose and README blocking-trait wording.
+
+### Upgrade from 0.4.1
+
+- Most applications require no source changes. `Hdc302x::into_parts` is
+  optional and returns constructor resources after a completed operation; it
+  does not guarantee transport recovery.
+- Replace any use of `auto_start(SampleRate::OneShot, ...)` with `one_shot` or
+  `one_shot_async`. Automatic start now rejects `SampleRate::OneShot` with
+  `Error::InvalidInputData`.
+- Continue to handle unavailable automatic latest results as `Error::I2c`.
+  Corrected heater frames, conversion endpoints, and serialization features
+  require no expected call-site change.
 
 ## [0.1.0](https://github.com/bobsrac/hdc302x-rs/releases/tag/v0.1.0) - 2024-08-21
 

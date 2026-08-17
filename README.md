@@ -71,6 +71,14 @@ NACK the read. The driver returns that condition as `Error::I2c`; it never
 manufactures a sample from an unavailable result. Extrema reads are snapshots
 and do not clear the current extrema history.
 
+## Resource ownership and recovery
+
+After a driver method returns, `Hdc302x::into_parts` returns the I2C transport,
+delay provider, and address supplied at construction. Applications can then
+apply their own reset or transport policy before constructing another driver
+with `Hdc302x::new`. This does not recover a non-returning operation or
+guarantee that a returned transport is healthy.
+
 ## Automatic-mode extrema
 
 On the HDC302x devices tested by the maintainer, including the instrumented

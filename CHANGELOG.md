@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `Hdc302x::into_parts` to return constructor resources for
+  application-controlled lifecycle handling after completed operations.
+
 ### Fixed
 
 - Correct automatic-mode documentation: the first completed sample is valid;

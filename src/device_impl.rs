@@ -31,6 +31,16 @@ impl<I2C, Delay> Hdc302x<I2C, Delay> {
     pub fn new(i2c: I2C, delay: Delay, i2c_addr: I2cAddr) -> Self {
         Self { i2c, delay, i2c_addr }
     }
+
+    /// Consume the driver and return the resources used to create it.
+    ///
+    /// This returns the I²C transport, delay provider, and address supplied to
+    /// [`Hdc302x::new`]. It does not recover the transport; after a completed
+    /// error, apply any board- or transport-specific recovery policy before
+    /// constructing another driver.
+    pub fn into_parts(self) -> (I2C, Delay, I2cAddr) {
+        (self.i2c, self.delay, self.i2c_addr)
+    }
 }
 
 #[cfg(feature = "blocking")]
@@ -288,6 +298,30 @@ fn sampling_command_cases() -> [(SampleRate, LowPowerMode, [u8; 2]); 24] {
         (SampleRate::Auto10Hz, LowPowerMode::LPM2, [0x27, 0x2a]),
         (SampleRate::Auto10Hz, LowPowerMode::LPM3, [0x27, 0xff]),
     ]
+}
+
+#[cfg(test)]
+mod ownership_tests {
+    use super::*;
+
+    #[test]
+    fn into_parts_returns_each_constructor_resource() {
+        for (i2c, delay, address) in [
+            (1_u8, 10_u16, I2cAddr::Addr00),
+            (2_u8, 20_u16, I2cAddr::Addr01),
+            (3_u8, 30_u16, I2cAddr::Addr10),
+            (4_u8, 40_u16, I2cAddr::Addr11),
+        ] {
+            let expected_address = address.clone();
+            let hdc = Hdc302x::new(i2c, delay, address);
+
+            let (returned_i2c, returned_delay, returned_address) = hdc.into_parts();
+
+            assert_eq!(returned_i2c, i2c);
+            assert_eq!(returned_delay, delay);
+            assert_eq!(returned_address, expected_address);
+        }
+    }
 }
 
 #[cfg(all(test, feature = "blocking"))]
@@ -548,7 +582,7 @@ mod blocking_scripted_i2c_tests {
     }
 
     #[test]
-    fn unavailable_latest_data_propagates_its_i2c_nack() {
+    fn unavailable_latest_data_i2c_error_leaves_driver_consumable() {
         let mut hdc = Hdc302x::new(
             RecordingI2c {
                 nack_reads: true,
@@ -561,12 +595,14 @@ mod blocking_scripted_i2c_tests {
         let result = hdc.auto_read(AutoReadTarget::LastTempAndRelHumid);
 
         assert!(matches!(result, Err(Error::I2c(ScriptError::DataNack))));
-        assert_eq!(hdc.i2c.writes, vec![(0x44, vec![0xe0, 0x00])]);
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(i2c.writes, vec![(0x44, vec![0xe0, 0x00])]);
+        assert_eq!(address, I2cAddr::Addr00);
     }
 
     #[cfg(feature = "crc")]
     #[test]
-    fn automatic_read_rejects_a_bad_crc_frame() {
+    fn crc_error_leaves_driver_consumable() {
         let mut hdc = Hdc302x::new(
             RecordingI2c {
                 read_frames: vec![vec![0x12, 0x34, 0x00]],
@@ -580,7 +616,9 @@ mod blocking_scripted_i2c_tests {
             hdc.auto_read(AutoReadTarget::MinTemp),
             Err(Error::CrcMismatch)
         ));
-        assert_eq!(hdc.i2c.writes, vec![(0x44, vec![0xe0, 0x02])]);
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(i2c.writes, vec![(0x44, vec![0xe0, 0x02])]);
+        assert_eq!(address, I2cAddr::Addr00);
     }
 
     #[test]
@@ -867,7 +905,7 @@ mod async_scripted_i2c_tests {
     }
 
     #[test]
-    fn unavailable_latest_data_propagates_its_i2c_nack() {
+    fn unavailable_latest_data_i2c_error_leaves_driver_consumable() {
         let mut hdc = Hdc302x::new(
             RecordingI2c {
                 nack_reads: true,
@@ -880,12 +918,14 @@ mod async_scripted_i2c_tests {
         let result = block_on(hdc.auto_read_async(AutoReadTarget::LastTempAndRelHumid));
 
         assert!(matches!(result, Err(Error::I2c(ScriptError::DataNack))));
-        assert_eq!(hdc.i2c.writes, vec![(0x44, vec![0xe0, 0x00])]);
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(i2c.writes, vec![(0x44, vec![0xe0, 0x00])]);
+        assert_eq!(address, I2cAddr::Addr00);
     }
 
     #[cfg(feature = "crc")]
     #[test]
-    fn automatic_read_rejects_a_bad_crc_frame() {
+    fn crc_error_leaves_driver_consumable() {
         let mut hdc = Hdc302x::new(
             RecordingI2c {
                 read_frames: vec![vec![0x12, 0x34, 0x00]],
@@ -899,7 +939,9 @@ mod async_scripted_i2c_tests {
             block_on(hdc.auto_read_async(AutoReadTarget::MinTemp)),
             Err(Error::CrcMismatch)
         ));
-        assert_eq!(hdc.i2c.writes, vec![(0x44, vec![0xe0, 0x02])]);
+        let (i2c, _delay, address) = hdc.into_parts();
+        assert_eq!(i2c.writes, vec![(0x44, vec![0xe0, 0x02])]);
+        assert_eq!(address, I2cAddr::Addr00);
     }
 
     #[test]

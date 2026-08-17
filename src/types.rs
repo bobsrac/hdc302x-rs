@@ -4,6 +4,10 @@ use core::fmt;
 
 #[cfg(feature="defmt")]
 use defmt::Format;
+#[cfg(feature = "bincode")]
+use bincode::{Decode, Encode};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// HDC302x(-Q1) device driver
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
@@ -27,14 +31,22 @@ pub struct Hdc302x<I2C, Delay> {
 pub enum Error<E> {
     /// I²C communication error
     I2c(E),
-    /// Invalid input data provided
+    /// Invalid input data provided, such as `SampleRate::OneShot` to `auto_start*`.
     InvalidInputData,
     /// Failure of a checksum from the device was detected
     #[cfg(feature = "crc")]
     CrcMismatch,
 }
 
-/// Raw (still in u16 format) temperature and/or humidity from the device
+/// Raw temperature and/or humidity data from the device, represented as `u16`.
+///
+/// Extrema variants are snapshots of the current automatic-mode interval;
+/// reading them does not clear their history. On the HDC302x devices tested by
+/// the maintainer, including the instrumented HDC3022 RevC, `auto_stop*`
+/// clears extrema while the reset-status bit remains clear. TI documentation
+/// describes extrema as reset only by reset. This crate therefore treats every
+/// automatic-mode run as a fresh extrema interval; this is an observed
+/// operational contract, not a promise for untested future revisions.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -42,15 +54,15 @@ pub enum Error<E> {
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum RawDatum {
-    /// temerature and relative humidity from one-shot or auto mode
+    /// Temperature and relative humidity from one-shot or automatic mode.
     TempAndRelHumid(RawTempAndRelHumid),
-    /// minimum temperature since auto mode was enabled
+    /// Minimum temperature in the current automatic-mode interval.
     MinTemp(u16),
-    /// maximum temperature since auto mode was enabled
+    /// Maximum temperature in the current automatic-mode interval.
     MaxTemp(u16),
-    /// minimum relative humidity since auto mode was enabled
+    /// Minimum relative humidity in the current automatic-mode interval.
     MinRelHumid(u16),
-    /// maximum relative humidity since auto mode was enabled
+    /// Maximum relative humidity in the current automatic-mode interval.
     MaxRelHumid(u16),
 }
 impl RawDatum {
@@ -95,9 +107,9 @@ impl RawDatum {
 #[derive(Default)]
 #[derive(PartialEq)]
 pub struct RawTempAndRelHumid{
-    /// unprocessed temperature
+    /// Unprocessed temperature.
     pub temperature: u16,
-    /// unprocessed relative humiodity
+    /// Unprocessed relative humidity.
     pub humidity: u16,
 }
 impl RawTempAndRelHumid {
@@ -115,7 +127,7 @@ impl RawTempAndRelHumid {
     }
 }
 
-/// Temp and/or humidity from the device after conversion
+/// Temperature and/or humidity from the device after conversion.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -123,15 +135,15 @@ impl RawTempAndRelHumid {
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Datum {
-    /// temerature and relative humidity from one-shot or auto mode
+    /// Temperature and relative humidity from one-shot or automatic mode.
     TempAndRelHumid(TempAndRelHumid),
-    /// minimum temperature since auto mode was enabled
+    /// Minimum temperature in the current automatic-mode interval.
     MinTemp(Temp),
-    /// maximum temperature since auto mode was enabled
+    /// Maximum temperature in the current automatic-mode interval.
     MaxTemp(Temp),
-    /// minimum relative humidity since auto mode was enabled
+    /// Minimum relative humidity in the current automatic-mode interval.
     MinRelHumid(f32),
-    /// maximum relative humidity since auto mode was enabled
+    /// Maximum relative humidity in the current automatic-mode interval.
     MaxRelHumid(f32),
 }
 impl From<&RawDatum> for Datum {
@@ -146,7 +158,7 @@ impl From<&RawDatum> for Datum {
     }
 }
 
-/// Temp and relative humidity from the device after conversion
+/// Temperature and relative humidity from the device after conversion.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -171,7 +183,7 @@ impl From<&RawTempAndRelHumid> for TempAndRelHumid {
         }
     }
 }
-/// Temp after conversion
+/// Temperature after conversion.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -222,7 +234,12 @@ pub struct StatusBits {
     pub t_low_tracking_alert: bool,
     /// reset (power-on or software) detected since last clear of status register
     pub reset_since_clear: bool,
-    /// failure of a checksum from the driver was detected
+    /// Device-reported command-payload checksum failure.
+    ///
+    /// On the tested HDC3022, an intentionally invalid heater-configuration
+    /// CRC caused a data NACK and set this bit. This is distinct from
+    /// [`Error::CrcMismatch`], which reports a bad CRC in data read by the
+    /// driver.
     pub checksum_failure: bool,
 }
 impl From<u16> for StatusBits {
@@ -286,7 +303,11 @@ impl fmt::Display for StatusBits {
 }
 
 
-/// Serial number of the device
+/// NIST-traceable serial number of the device.
+///
+/// The public array is ordered `[NIST ID0, ID1, ID2, ID3, ID4, ID5]`, from
+/// least- to most-significant byte. Its [`fmt::Display`] implementation renders
+/// the canonical NIST order, ID5 through ID0.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

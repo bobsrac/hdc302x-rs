@@ -1,5 +1,9 @@
 #[cfg(feature="defmt")]
 use defmt::Format;
+#[cfg(feature = "bincode")]
+use bincode::{Decode, Encode};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 /// I2C device address options, which are selected via the ADDR1 and ADDR pins.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
@@ -37,7 +41,10 @@ impl I2cAddr {
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum SampleRate {
-    /// initiate and read a single measurement, returning device back to sleep afterward
+    /// Initiate and read a single measurement, returning the device to sleep afterward.
+    ///
+    /// This rate is valid for [`crate::Hdc302x::one_shot`] and
+    /// [`crate::Hdc302x::one_shot_async`], but is rejected by `auto_start*`.
     OneShot,
     /// device self-times 1 sample every 2 seconds
     Auto500mHz,
@@ -87,7 +94,15 @@ impl LowPowerMode {
     }
 }
 
-/// Options for what to read from the device when in auto mode.
+/// Options for what to read from the device when in automatic mode.
+///
+/// Extrema reads are snapshots of the current automatic-mode interval; reading
+/// an extrema target does not clear its history. On the HDC302x devices tested
+/// by the maintainer, including the instrumented HDC3022 RevC, `auto_stop*`
+/// clears extrema while the reset-status bit remains clear. TI documentation
+/// describes extrema as reset only by reset. This crate therefore treats every
+/// automatic-mode run as a fresh extrema interval; this is an observed
+/// operational contract, not a promise for untested future revisions.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -95,19 +110,25 @@ impl LowPowerMode {
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum AutoReadTarget {
-    /// most recently sampled temperature and relative humidity
+    /// Most recently completed temperature and relative-humidity sample.
+    ///
+    /// A successful read consumes the latest result. Before a completed sample
+    /// is available, or after it has been consumed, the device may I²C-NACK.
     LastTempAndRelHumid,
-    /// minimum temperature since auto mode was started
+    /// Minimum temperature in the current automatic-mode interval.
     MinTemp,
-    /// maximum temperature since auto mode was started
+    /// Maximum temperature in the current automatic-mode interval.
     MaxTemp,
-    /// minimum relative humidity since auto mode was started
+    /// Minimum relative humidity in the current automatic-mode interval.
     MinRelHumid,
-    /// maximum relative humidity since auto mode was started
+    /// Maximum relative humidity in the current automatic-mode interval.
     MaxRelHumid,
 }
 
-/// Options for the on-device heater.  The datasheet claims this may be useful to drive off condensation.
+/// Options for the on-device heater.
+///
+/// These are TI-defined configuration settings. They are not independently
+/// measured physical-power guarantees.
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -116,14 +137,14 @@ pub enum AutoReadTarget {
 #[derive(Default)]
 #[derive(PartialEq)]
 pub enum HeaterLevel{
-    /// heater off (post-reset default)
+    /// Heater off (post-reset default).
     #[default]
     Off,
-    /// heater on at 25% power
+    /// Select the TI-defined 25% heater configuration setting.
     On25Percent,
-    /// heater on at 50% power
+    /// Select the TI-defined 50% heater configuration setting.
     On50Percent,
-    /// heater on at 100% power
+    /// Select the TI-defined 100% heater configuration setting.
     On100Percent,
 }
 impl HeaterLevel {
@@ -135,6 +156,26 @@ impl HeaterLevel {
             HeaterLevel::On100Percent => Some(0x3FFF),
         }
     }
+}
+
+/// Calculate the CRC required by HDC302x two-byte command payloads.
+pub(crate) const fn command_payload_crc(payload: [u8; 2]) -> u8 {
+    let mut crc = 0xff_u8;
+    let mut byte_index = 0;
+    while byte_index < payload.len() {
+        crc ^= payload[byte_index];
+        let mut bit_index = 0;
+        while bit_index < 8 {
+            crc = if crc & 0x80 != 0 {
+                (crc << 1) ^ 0x31
+            } else {
+                crc << 1
+            };
+            bit_index += 1;
+        }
+        byte_index += 1;
+    }
+    crc
 }
 
 pub(crate) fn start_sampling_command(sample_rate: SampleRate, low_power_mode: LowPowerMode) -> u16 {
@@ -318,11 +359,30 @@ pub(crate) const STATUS_FIELD_WIDTH_CHECKSUM_FAILURE: usize = 1;
 pub(crate) const MANUFACTURER_ID_TEXAS_INSTRUMENTS: u16 = 0x3000u16;
 
 pub(crate) fn raw_temp_to_centigrade(raw: u16) -> f32 {
-    -45.0 + 175.0 * (raw as f32) / 65536.0
+    -45.0 + 175.0 * (raw as f32) / 65535.0
 }
 pub(crate) fn raw_temp_to_fahrenheit(raw: u16) -> f32 {
-    -49.0 + 315.0 * (raw as f32) / 65536.0
+    -49.0 + 315.0 * (raw as f32) / 65535.0
 }
 pub(crate) fn raw_rel_humid_to_percent(raw: u16) -> f32 {
-    100.0 * (raw as f32) / 65536.0
+    100.0 * (raw as f32) / 65535.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_close(actual: f32, expected: f32) {
+        assert!((actual - expected).abs() < 0.001, "{actual} != {expected}");
+    }
+
+    #[test]
+    fn full_scale_raw_values_convert_to_documented_endpoints() {
+        assert_close(raw_temp_to_centigrade(0), -45.0);
+        assert_close(raw_temp_to_centigrade(u16::MAX), 130.0);
+        assert_close(raw_temp_to_fahrenheit(0), -49.0);
+        assert_close(raw_temp_to_fahrenheit(u16::MAX), 266.0);
+        assert_close(raw_rel_humid_to_percent(0), 0.0);
+        assert_close(raw_rel_humid_to_percent(u16::MAX), 100.0);
+    }
 }

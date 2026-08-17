@@ -22,14 +22,17 @@ homepage = "https://github.com/bobsrac/hdc302x-rs"
 edition = "2024"
 
 [dependencies]
-bincode = { version = "2.0.1", optional = true, default-features = false }
+bincode = { version = "2.0.1", optional = true, default-features = false, features = ["derive"] }
 cfg-if = "1.0.4"
 crc = { version = "3.3.0", optional = true }
 defmt = { version = "1.0.1", optional = true }
 embedded-hal = { version = "1.0.0", optional = true }
 embedded-hal-async = { version = "1.0.0", optional = true }
 log = { version = "0.4.28", optional = true }
-serde = { version = "1.0.228", optional = true, default-features = false }
+serde = { version = "1.0.228", optional = true, default-features = false, features = ["derive"] }
+
+[dev-dependencies]
+futures = "0.3.33"
 
 [features]
 default = ["async", "blocking", "crc"]

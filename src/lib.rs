@@ -23,11 +23,35 @@
 //! - Alerts (read/write and non-volatile storage of setpoints).
 //! - Offset calibration (non-volatile storage of temperature and relative humidity offsets).
 //! - Configuration of post-reset state (default behavior after power-on and software reset).
-//! - Blocking API support.
+//!
+//! ## Automatic-mode availability and extrema
+//!
+//! A completed automatic conversion produces a normal latest-result sample.
+//! Reading that result before the first conversion is ready, or after a
+//! successful latest-result read consumes it, may return an I²C NACK as
+//! [`Error::I2c`]. Applications should wait for the selected automatic period
+//! before each latest-result read and treat an I²C error as unavailable data.
+//! Reading extrema produces a snapshot and does not clear the current extrema
+//! history.
+//!
+//! On the HDC302x devices tested by the maintainer, including the instrumented
+//! HDC3022 RevC, [`Hdc302x::auto_stop`] and [`Hdc302x::auto_stop_async`] clear
+//! extrema even though the reset-status bit remains clear. TI documentation
+//! describes extrema as reset only by reset. The crate therefore treats every
+//! automatic-mode run as a fresh extrema interval; this is an observed
+//! operational contract, not a promise for untested future revisions.
+//!
+//! When [`Hdc302x::read_status`] or [`Hdc302x::read_status_async`] is called
+//! with `clear = true`, it returns the pre-clear status and then sends the
+//! status-clear command. On the instrumented HDC3022 RevC, that command clears
+//! reset and tracking status but not checksum-failure status. Heater
+//! configuration frames and status transitions are hardware-validated, but
+//! physical heater output is not. Heater-active measurements are not ambient
+//! measurements, and cooldown is application and board-layout dependent.
 //!
 //! ## Features
 //!
-//! - 'async`: Enables async API.
+//! - `async`: Enables async API.
 //! - `blocking`: Enables blocking API.
 //! - `crc`: Checks received CRC against computed CRC.
 //! - `defmt`: Enables logging using the `defmt` framework.
@@ -64,12 +88,13 @@
 //!
 //! ## Async Example:
 //!
-//! ```
+//! ```ignore
 //! use hdc302x::{
-//!     Datum,
+//!     AutoReadTarget,
 //!     Hdc302x,
 //!     I2cAddr,
 //!     LowPowerMode,
+//!     SampleRate,
 //! };
 //!
 //! // Platform-specific
@@ -80,7 +105,7 @@
 //! let mut hdc302x = Hdc302x::new(i2c, delay, I2cAddr::Addr00);
 //!
 //! // Read and display a one-shot sample
-//! let raw_datum = hdc302x.one_shot(LowPowerMode::lowest_noise()).await.unwrap();
+//! let raw_datum = hdc302x.one_shot_async(LowPowerMode::lowest_noise()).await.unwrap();
 //! println!("{:3} %RH, {:0.1} °C",
 //!     raw_datum.humidity_percent(),
 //!     raw_datum.centigrade());
@@ -88,30 +113,31 @@
 //! // Use auto mode to continuously sample and track the min/max temperature
 //! loop {
 //!     // stop and restart auto_mode to reset min/max values
-//!     hdc302x.auto_stop().await.unwrap();
-//!     hdc302x.auto_start(HdcSampleRate::Auto500mHz, HdcLowPowerMode::lowest_power()).await.unwrap();
+//!     hdc302x.auto_stop_async().await.unwrap();
+//!     hdc302x.auto_start_async(SampleRate::Auto500mHz, LowPowerMode::LPM3).await.unwrap();
 //!
 //!     // Platform-specific: sleep a while
-//!     sleep_secs(60);
+//!     sleep_secs(60).await;
 //!
 //!     // fetch the results from the hdc302x sensor
 //!     println!("min/max temperature: {:0.1} °C / {:0.1} °C",
-//!         hdc302x.auto_read(HdcAutoReadTarget::MinTemp).await.unwrap().centigrade().unwrap(),
-//!         hdc302x.auto_read(HdcAutoReadTarget::MaxTemp).await.unwrap().centigrade().unwrap());
+//!         hdc302x.auto_read_async(AutoReadTarget::MinTemp).await.unwrap().centigrade().unwrap(),
+//!         hdc302x.auto_read_async(AutoReadTarget::MaxTemp).await.unwrap().centigrade().unwrap());
 //!     println!("min/max relative humidity: {:0.1} % / {:0.1} %",
-//!         hdc302x.auto_read(HdcAutoReadTarget::MinRelHumid).await.unwrap().humidity_percent().unwrap(),
-//!         hdc302x.auto_read(HdcAutoReadTarget::MaxRelHumid).await.unwrap().humidity_percent().unwrap());
+//!         hdc302x.auto_read_async(AutoReadTarget::MinRelHumid).await.unwrap().humidity_percent().unwrap(),
+//!         hdc302x.auto_read_async(AutoReadTarget::MaxRelHumid).await.unwrap().humidity_percent().unwrap());
 //! }
 //! ```
-//! 
+//!
 //! ## Blocking Example:
 //!
-//! ```
+//! ```ignore
 //! use hdc302x::{
-//!     Datum,
+//!     AutoReadTarget,
 //!     Hdc302x,
 //!     I2cAddr,
 //!     LowPowerMode,
+//!     SampleRate,
 //! };
 //!
 //! // Platform-specific
@@ -131,24 +157,27 @@
 //! loop {
 //!     // stop and restart auto_mode to reset min/max values
 //!     hdc302x.auto_stop().unwrap();
-//!     hdc302x.auto_start(HdcSampleRate::Auto500mHz, HdcLowPowerMode::lowest_power()).unwrap();
+//!     hdc302x.auto_start(SampleRate::Auto500mHz, LowPowerMode::LPM3).unwrap();
 //!
 //!     // Platform-specific: sleep a while
 //!     sleep_secs(60);
 //!
 //!     // fetch the results from the hdc302x sensor
 //!     println!("min/max temperature: {:0.1} °C / {:0.1} °C",
-//!         hdc302x.auto_read(HdcAutoReadTarget::MinTemp).unwrap().centigrade().unwrap(),
-//!         hdc302x.auto_read(HdcAutoReadTarget::MaxTemp).unwrap().centigrade().unwrap());
+//!         hdc302x.auto_read(AutoReadTarget::MinTemp).unwrap().centigrade().unwrap(),
+//!         hdc302x.auto_read(AutoReadTarget::MaxTemp).unwrap().centigrade().unwrap());
 //!     println!("min/max relative humidity: {:0.1} % / {:0.1} %",
-//!         hdc302x.auto_read(HdcAutoReadTarget::MinRelHumid).unwrap().humidity_percent().unwrap(),
-//!         hdc302x.auto_read(HdcAutoReadTarget::MaxRelHumid).unwrap().humidity_percent().unwrap());
+//!         hdc302x.auto_read(AutoReadTarget::MinRelHumid).unwrap().humidity_percent().unwrap(),
+//!         hdc302x.auto_read(AutoReadTarget::MaxRelHumid).unwrap().humidity_percent().unwrap());
 //! }
 //! ```
 
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 #![no_std]
+
+#[cfg(test)]
+extern crate std;
 
 #[cfg(not(any(feature = "async", feature = "blocking")))]
 compile_error!("At least one of \"async\" and \"blocking\" features must be enabled");

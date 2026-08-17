@@ -2,9 +2,10 @@
 
 This is a platform-agnostic Rust driver for the HDC3020, HDC3021, HDC3022, HDC3020-Q1,
 HDC3021-Q1 and HDC3022-Q1 low-power humidity and temperature digital sensors using
-the [`embedded-hal-async`] traits.
+the [`embedded-hal`] and [`embedded-hal-async`] traits.
 This driver was inspired by [Diego Barrios Romero's hdc20xx-rs driver](https://github.com/eldruin/hdc20xx-rs).
 
+[`embedded-hal`]: https://github.com/rust-embedded/embedded-hal/tree/master/embedded-hal
 [`embedded-hal-async`]: https://github.com/rust-embedded/embedded-hal/tree/master/embedded-hal-async
 
 This driver allows you to:
@@ -61,9 +62,32 @@ Datasheets:
 
 See the examples folder.
 
-## Future Work
+## Automatic-mode result availability
 
-- bug: First auto-timed sample returns invalid data (max is minval, and min is maxval)
+The first completed automatic-mode result is a normal measurement. Read the
+latest result only when one is available: before a conversion completes, or
+after a latest-result read has consumed the available value, the HDC302x may
+NACK the read. The driver returns that condition as `Error::I2c`; it never
+manufactures a sample from an unavailable result. Extrema reads are snapshots
+and do not clear the current extrema history.
+
+## Automatic-mode extrema
+
+On the HDC302x devices tested by the maintainer, including the instrumented
+HDC3022 RevC, `auto_stop` clears all four extrema even though the reset-status
+bit remains clear; restarting automatic mode begins a fresh extrema window. TI
+documentation says extrema reset only on reset. The crate therefore treats
+every automatic-mode run as a fresh extrema interval; this is an observed
+operational contract, not a promise for untested future revisions.
+
+## Status and heater behavior
+
+`read_status(true)` returns the pre-clear status and then sends the
+status-clear command. On the instrumented HDC3022 RevC, clear resets
+reset/tracking status but not checksum-failure status. Heater configuration
+frames and status transitions are hardware-validated, but physical heater
+output is not. Measurements while the heater is active are not ambient
+measurements; cooldown depends on the application and board layout.
 
 ## License
 

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-08-16
 
+### Breaking changes
+
+- `auto_start(SampleRate::OneShot, _)` and `auto_start_async` now return
+  `Error::InvalidInputData` without I²C traffic. Use `one_shot` or
+  `one_shot_async` instead.
+- Raw conversion uses the documented inclusive full-scale range. Values for
+  nonzero raw readings change slightly; in particular, `u16::MAX` now converts
+  to 130 °C, 266 °F, and 100% RH. Update golden/reference values accordingly.
+
 ### Added
 
 - Add `Hdc302x::into_parts` to return constructor resources for
@@ -39,11 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optional and returns constructor resources after a completed operation; it
   does not guarantee transport recovery.
 - Replace any use of `auto_start(SampleRate::OneShot, ...)` with `one_shot` or
-  `one_shot_async`. Automatic start now rejects `SampleRate::OneShot` with
-  `Error::InvalidInputData`.
+  `one_shot_async`.
 - Continue to handle unavailable automatic latest results as `Error::I2c`.
-  Corrected heater frames, conversion endpoints, and serialization features
-  require no expected call-site change.
+  Corrected heater frames and serialization features require no expected
+  call-site change; update conversion golden/reference values as above.
 
 ## [0.1.0](https://github.com/bobsrac/hdc302x-rs/releases/tag/v0.1.0) - 2024-08-21
 

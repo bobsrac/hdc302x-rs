@@ -4,7 +4,7 @@ use crate::types::*;
 use cfg_if::cfg_if;
 
 #[cfg(feature = "crc")]
-use crc::{Crc, CRC_8_NRSC_5};
+use crc::{CRC_8_NRSC_5, Crc};
 
 #[cfg(feature = "defmt")]
 use defmt::trace;
@@ -29,7 +29,11 @@ const CRC: crc::Crc<u8> = Crc::<u8>::new(&CRC_8_NRSC_5);
 impl<I2C, Delay> Hdc302x<I2C, Delay> {
     /// Create a new HDC302x driver instance
     pub fn new(i2c: I2C, delay: Delay, i2c_addr: I2cAddr) -> Self {
-        Self { i2c, delay, i2c_addr }
+        Self {
+            i2c,
+            delay,
+            i2c_addr,
+        }
     }
 
     /// Consume the driver and return the resources used to create it.
@@ -49,7 +53,12 @@ where
     I2C: embedded_hal::i2c::I2c<Error = E>,
     Delay: embedded_hal::delay::DelayNs,
 {
-    fn cmd_delay_read(&mut self, cmd_bytes: &[u8; 2], delay_us: Option<u32>, read_vals: &mut [u16]) -> Result<(), Error<E>> {
+    fn cmd_delay_read(
+        &mut self,
+        cmd_bytes: &[u8; 2],
+        delay_us: Option<u32>,
+        read_vals: &mut [u16],
+    ) -> Result<(), Error<E>> {
         let num_vals = read_vals.len();
         // We are heapless, so have to have an upper bound
         assert!(num_vals <= 2);
@@ -61,7 +70,10 @@ where
         } else {
             let mut read_buf = [0u8; 6];
             let read_buf_slice = &mut read_buf[0..(3 * num_vals)];
-            trace!("hdc302x::cmd_delay_read(): read_buf_slice.len()={}", read_buf_slice.len());
+            trace!(
+                "hdc302x::cmd_delay_read(): read_buf_slice.len()={}",
+                read_buf_slice.len()
+            );
             if let Err(i2c_err) = self.i2c.write(self.i2c_addr.as_u8(), cmd_bytes) {
                 return Err(Error::I2c(i2c_err));
             }
@@ -73,7 +85,7 @@ where
             }
             // TODO: consider whether to retry around this failure
             for ii in 0..num_vals {
-                let read_word = &read_buf[ii*3..=ii*3+1];
+                let read_word = &read_buf[ii * 3..=ii * 3 + 1];
                 cfg_if! {
                     if #[cfg(feature = "crc")] {
                         let read_crc = &read_buf[ii*3+2];
@@ -98,13 +110,15 @@ where
 
     /// Trigger a one-shot measurement and return the raw sample pair
     pub fn one_shot(&mut self, low_power_mode: LowPowerMode) -> Result<RawDatum, Error<E>> {
-        let cmd_bytes = start_sampling_command(SampleRate::OneShot, low_power_mode.clone()).to_be_bytes();
-        let delay_us = 100 + match low_power_mode {
-            LowPowerMode::LPM0 => 12_500,
-            LowPowerMode::LPM1 =>  7_500,
-            LowPowerMode::LPM2 =>  5_000,
-            LowPowerMode::LPM3 =>  3_700,
-        };
+        let cmd_bytes =
+            start_sampling_command(SampleRate::OneShot, low_power_mode.clone()).to_be_bytes();
+        let delay_us = 100
+            + match low_power_mode {
+                LowPowerMode::LPM0 => 12_500,
+                LowPowerMode::LPM1 => 7_500,
+                LowPowerMode::LPM2 => 5_000,
+                LowPowerMode::LPM3 => 3_700,
+            };
         let mut read_buf = [0u16; 2];
         self.cmd_delay_read(&cmd_bytes, Some(delay_us), &mut read_buf)?;
         Ok(RawDatum::TempAndRelHumid(RawTempAndRelHumid {
@@ -117,7 +131,11 @@ where
     ///
     /// [`SampleRate::OneShot`] is not an automatic rate and returns
     /// [`Error::InvalidInputData`] without I²C traffic.
-    pub fn auto_start(&mut self, sample_rate: SampleRate, low_power_mode: LowPowerMode) -> Result<(), Error<E>> {
+    pub fn auto_start(
+        &mut self,
+        sample_rate: SampleRate,
+        low_power_mode: LowPowerMode,
+    ) -> Result<(), Error<E>> {
         if sample_rate == SampleRate::OneShot {
             return Err(Error::InvalidInputData);
         }
@@ -152,7 +170,8 @@ where
             AutoReadTarget::MaxTemp => Command::AutoReadMaxTemp,
             AutoReadTarget::MinRelHumid => Command::AutoReadMinRelHumid,
             AutoReadTarget::MaxRelHumid => Command::AutoReadMaxRelHumid,
-        }.as_be_bytes();
+        }
+        .as_be_bytes();
 
         let mut read_buf = [0u16; 2];
         let read_buf_slice = match target {
@@ -222,7 +241,7 @@ where
     /// See [`SerialNumber`] for its byte and display ordering.
     pub fn read_serial_number(&mut self) -> Result<SerialNumber, Error<E>> {
         let mut temp_u16 = [0u16; 1];
-        let mut bytes= [0u8; 6];
+        let mut bytes = [0u8; 6];
         self.cmd_delay_read(&Command::SerialID54.as_be_bytes(), None, &mut temp_u16)?;
         bytes[5] = (temp_u16[0] >> 8) as u8;
         bytes[4] = temp_u16[0] as u8;
@@ -448,8 +467,16 @@ mod blocking_scripted_i2c_tests {
                     humidity: 0x5678,
                 }),
             ),
-            (AutoReadTarget::MinTemp, [0xe0, 0x02], RawDatum::MinTemp(0x1234)),
-            (AutoReadTarget::MaxTemp, [0xe0, 0x03], RawDatum::MaxTemp(0x1234)),
+            (
+                AutoReadTarget::MinTemp,
+                [0xe0, 0x02],
+                RawDatum::MinTemp(0x1234),
+            ),
+            (
+                AutoReadTarget::MaxTemp,
+                [0xe0, 0x03],
+                RawDatum::MaxTemp(0x1234),
+            ),
             (
                 AutoReadTarget::MinRelHumid,
                 [0xe0, 0x04],
@@ -882,8 +909,16 @@ mod async_scripted_i2c_tests {
                     humidity: 0x5678,
                 }),
             ),
-            (AutoReadTarget::MinTemp, [0xe0, 0x02], RawDatum::MinTemp(0x1234)),
-            (AutoReadTarget::MaxTemp, [0xe0, 0x03], RawDatum::MaxTemp(0x1234)),
+            (
+                AutoReadTarget::MinTemp,
+                [0xe0, 0x02],
+                RawDatum::MinTemp(0x1234),
+            ),
+            (
+                AutoReadTarget::MaxTemp,
+                [0xe0, 0x03],
+                RawDatum::MaxTemp(0x1234),
+            ),
             (
                 AutoReadTarget::MinRelHumid,
                 [0xe0, 0x04],
@@ -1196,7 +1231,12 @@ where
     I2C: embedded_hal_async::i2c::I2c<Error = E>,
     Delay: embedded_hal_async::delay::DelayNs,
 {
-    async fn cmd_delay_read_async(&mut self, cmd_bytes: &[u8; 2], delay_us: Option<u32>, read_vals: &mut [u16]) -> Result<(), Error<E>> {
+    async fn cmd_delay_read_async(
+        &mut self,
+        cmd_bytes: &[u8; 2],
+        delay_us: Option<u32>,
+        read_vals: &mut [u16],
+    ) -> Result<(), Error<E>> {
         let num_vals = read_vals.len();
         // We are heapless, so have to have an upper bound
         assert!(num_vals <= 2);
@@ -1208,7 +1248,10 @@ where
         } else {
             let mut read_buf = [0u8; 6];
             let read_buf_slice = &mut read_buf[0..(3 * num_vals)];
-            trace!("hdc302x::cmd_delayread_async(): read_buf_slice.len()={}", read_buf_slice.len());
+            trace!(
+                "hdc302x::cmd_delayread_async(): read_buf_slice.len()={}",
+                read_buf_slice.len()
+            );
             if let Err(i2c_err) = self.i2c.write(self.i2c_addr.as_u8(), cmd_bytes).await {
                 return Err(Error::I2c(i2c_err));
             }
@@ -1220,7 +1263,7 @@ where
             }
             // TODO: consider whether to retry around this failure
             for ii in 0..num_vals {
-                let read_word = &read_buf[ii*3..=ii*3+1];
+                let read_word = &read_buf[ii * 3..=ii * 3 + 1];
                 cfg_if! {
                     if #[cfg(feature = "crc")] {
                         let read_crc = &read_buf[ii*3+2];
@@ -1244,16 +1287,22 @@ where
     }
 
     /// Trigger a one-shot measurement and return the raw sample pair
-    pub async fn one_shot_async(&mut self, low_power_mode: LowPowerMode) -> Result<RawDatum, Error<E>> {
-        let cmd_bytes = start_sampling_command(SampleRate::OneShot, low_power_mode.clone()).to_be_bytes();
-        let delay_us = 100 + match low_power_mode {
-            LowPowerMode::LPM0 => 12_500,
-            LowPowerMode::LPM1 =>  7_500,
-            LowPowerMode::LPM2 =>  5_000,
-            LowPowerMode::LPM3 =>  3_700,
-        };
+    pub async fn one_shot_async(
+        &mut self,
+        low_power_mode: LowPowerMode,
+    ) -> Result<RawDatum, Error<E>> {
+        let cmd_bytes =
+            start_sampling_command(SampleRate::OneShot, low_power_mode.clone()).to_be_bytes();
+        let delay_us = 100
+            + match low_power_mode {
+                LowPowerMode::LPM0 => 12_500,
+                LowPowerMode::LPM1 => 7_500,
+                LowPowerMode::LPM2 => 5_000,
+                LowPowerMode::LPM3 => 3_700,
+            };
         let mut read_buf = [0u16; 2];
-        self.cmd_delay_read_async(&cmd_bytes, Some(delay_us), &mut read_buf).await?;
+        self.cmd_delay_read_async(&cmd_bytes, Some(delay_us), &mut read_buf)
+            .await?;
         Ok(RawDatum::TempAndRelHumid(RawTempAndRelHumid {
             temperature: read_buf[0],
             humidity: read_buf[1],
@@ -1264,12 +1313,17 @@ where
     ///
     /// [`SampleRate::OneShot`] is not an automatic rate and returns
     /// [`Error::InvalidInputData`] without I²C traffic.
-    pub async fn auto_start_async(&mut self, sample_rate: SampleRate, low_power_mode: LowPowerMode) -> Result<(), Error<E>> {
+    pub async fn auto_start_async(
+        &mut self,
+        sample_rate: SampleRate,
+        low_power_mode: LowPowerMode,
+    ) -> Result<(), Error<E>> {
         if sample_rate == SampleRate::OneShot {
             return Err(Error::InvalidInputData);
         }
         let cmd_bytes = start_sampling_command(sample_rate, low_power_mode).to_be_bytes();
-        self.cmd_delay_read_async(&cmd_bytes, None, &mut [0u16; 0]).await?;
+        self.cmd_delay_read_async(&cmd_bytes, None, &mut [0u16; 0])
+            .await?;
         Ok(())
     }
 
@@ -1282,7 +1336,8 @@ where
     /// extrema interval; this is an observed operational contract, not a
     /// promise for untested future revisions.
     pub async fn auto_stop_async(&mut self) -> Result<(), Error<E>> {
-        self.cmd_delay_read_async(&Command::AutoExit.as_be_bytes(), None, &mut [0u16; 0]).await?;
+        self.cmd_delay_read_async(&Command::AutoExit.as_be_bytes(), None, &mut [0u16; 0])
+            .await?;
         Ok(())
     }
 
@@ -1299,7 +1354,8 @@ where
             AutoReadTarget::MaxTemp => Command::AutoReadMaxTemp,
             AutoReadTarget::MinRelHumid => Command::AutoReadMinRelHumid,
             AutoReadTarget::MaxRelHumid => Command::AutoReadMaxRelHumid,
-        }.as_be_bytes();
+        }
+        .as_be_bytes();
 
         let mut read_buf = [0u16; 2];
         let read_buf_slice = match target {
@@ -1310,7 +1366,8 @@ where
             AutoReadTarget::MaxRelHumid => &mut read_buf[..1],
         };
 
-        self.cmd_delay_read_async(&cmd_bytes, None, read_buf_slice).await?;
+        self.cmd_delay_read_async(&cmd_bytes, None, read_buf_slice)
+            .await?;
 
         Ok(match target {
             AutoReadTarget::LastTempAndRelHumid => RawDatum::TempAndRelHumid(RawTempAndRelHumid {
@@ -1332,7 +1389,8 @@ where
     /// ambient measurements; choose a cooldown interval for the application and
     /// board layout.
     pub async fn heater_async(&mut self, heater_level: HeaterLevel) -> Result<(), Error<E>> {
-        self.cmd_delay_read_async(&Command::HeaterDisable.as_be_bytes(), None, &mut [0u16; 0]).await?;
+        self.cmd_delay_read_async(&Command::HeaterDisable.as_be_bytes(), None, &mut [0u16; 0])
+            .await?;
 
         if let Some(setting) = heater_level.setting() {
             let setting_bytes = setting.to_be_bytes();
@@ -1343,7 +1401,8 @@ where
             if let Err(i2c_err) = self.i2c.write(self.i2c_addr.as_u8(), &cmd_bytes).await {
                 return Err(Error::I2c(i2c_err));
             }
-            self.cmd_delay_read_async(&Command::HeaterEnable.as_be_bytes(), None, &mut [0u16; 0]).await?;
+            self.cmd_delay_read_async(&Command::HeaterEnable.as_be_bytes(), None, &mut [0u16; 0])
+                .await?;
         }
         Ok(())
     }
@@ -1356,9 +1415,11 @@ where
     /// status.
     pub async fn read_status_async(&mut self, clear: bool) -> Result<StatusBits, Error<E>> {
         let mut read_buf = [0u16; 1];
-        self.cmd_delay_read_async(&Command::StatusRead.as_be_bytes(), None, &mut read_buf).await?;
+        self.cmd_delay_read_async(&Command::StatusRead.as_be_bytes(), None, &mut read_buf)
+            .await?;
         if clear {
-            self.cmd_delay_read_async(&Command::StatusClear.as_be_bytes(), None, &mut [0u16; 0]).await?;
+            self.cmd_delay_read_async(&Command::StatusClear.as_be_bytes(), None, &mut [0u16; 0])
+                .await?;
         }
 
         Ok(StatusBits::from(read_buf[0]))
@@ -1369,14 +1430,17 @@ where
     /// See [`SerialNumber`] for its byte and display ordering.
     pub async fn read_serial_number_async(&mut self) -> Result<SerialNumber, Error<E>> {
         let mut temp_u16 = [0u16; 1];
-        let mut bytes= [0u8; 6];
-        self.cmd_delay_read_async(&Command::SerialID54.as_be_bytes(), None, &mut temp_u16).await?;
+        let mut bytes = [0u8; 6];
+        self.cmd_delay_read_async(&Command::SerialID54.as_be_bytes(), None, &mut temp_u16)
+            .await?;
         bytes[5] = (temp_u16[0] >> 8) as u8;
         bytes[4] = temp_u16[0] as u8;
-        self.cmd_delay_read_async(&Command::SerialID32.as_be_bytes(), None, &mut temp_u16).await?;
+        self.cmd_delay_read_async(&Command::SerialID32.as_be_bytes(), None, &mut temp_u16)
+            .await?;
         bytes[3] = (temp_u16[0] >> 8) as u8;
         bytes[2] = temp_u16[0] as u8;
-        self.cmd_delay_read_async(&Command::SerialID10.as_be_bytes(), None, &mut temp_u16).await?;
+        self.cmd_delay_read_async(&Command::SerialID10.as_be_bytes(), None, &mut temp_u16)
+            .await?;
         bytes[1] = (temp_u16[0] >> 8) as u8;
         bytes[0] = temp_u16[0] as u8;
         Ok(SerialNumber(bytes))
@@ -1385,7 +1449,8 @@ where
     /// Read the manufacturer ID.
     pub async fn read_manufacturer_id_async(&mut self) -> Result<ManufacturerId, Error<E>> {
         let mut read_buf = [0u16; 1];
-        self.cmd_delay_read_async(&Command::ManufacturerID.as_be_bytes(), None, &mut read_buf).await?;
+        self.cmd_delay_read_async(&Command::ManufacturerID.as_be_bytes(), None, &mut read_buf)
+            .await?;
         Ok(ManufacturerId::from(read_buf[0]))
     }
 
@@ -1394,7 +1459,8 @@ where
     /// This sends the command only. Wait the TI-specified reset-ready interval
     /// before issuing a subsequent command.
     pub async fn software_reset_async(&mut self) -> Result<(), Error<E>> {
-        self.cmd_delay_read_async(&Command::SoftReset.as_be_bytes(), None, &mut [0u16; 0]).await?;
+        self.cmd_delay_read_async(&Command::SoftReset.as_be_bytes(), None, &mut [0u16; 0])
+            .await?;
         Ok(())
     }
 

@@ -66,7 +66,7 @@
 //! with ultra-low power consumption in a compact 2.5-mm × 2.5-mm package. Both the temperature and
 //! humidity sensors are 100% tested and trimmed on a production setup that is NIST traceable and
 //! verified with equipment that is calibrated to ISO/IEC 17025 standards.
-//! 
+//!
 //! Offset Error Correction reduces RH sensor offset due to aging, exposure to extreme operating
 //! conditions, and contaminants to return device to within accuracy specifications. For battery
 //! IoT applications, auto measurement mode and ALERT feature enable low system power by maximizing
@@ -183,7 +183,9 @@ extern crate std;
 compile_error!("At least one of \"async\" and \"blocking\" features must be enabled");
 
 #[cfg(all(feature = "defmt", feature = "log"))]
-compile_error!("Features \"defmt\" and \"log\" are mutually exclusive and cannot be enabled together");
+compile_error!(
+    "Features \"defmt\" and \"log\" are mutually exclusive and cannot be enabled together"
+);
 
 mod device_impl;
 mod hw_def;

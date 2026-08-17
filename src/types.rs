@@ -2,10 +2,10 @@ use crate::hw_def::*;
 
 use core::fmt;
 
-#[cfg(feature="defmt")]
-use defmt::Format;
 #[cfg(feature = "bincode")]
 use bincode::{Decode, Encode};
+#[cfg(feature = "defmt")]
+use defmt::Format;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -13,9 +13,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Hdc302x<I2C, Delay> {
     pub(crate) i2c: I2C,
     pub(crate) delay: Delay,
@@ -26,8 +24,7 @@ pub struct Hdc302x<I2C, Delay> {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Error<E> {
     /// I²C communication error
     I2c(E),
@@ -50,9 +47,7 @@ pub enum Error<E> {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RawDatum {
     /// Temperature and relative humidity from one-shot or automatic mode.
     TempAndRelHumid(RawTempAndRelHumid),
@@ -69,7 +64,9 @@ impl RawDatum {
     /// Get temperature in Fahrenheit
     pub fn fahrenheit(&self) -> Option<f32> {
         match self {
-            Self::TempAndRelHumid(RawTempAndRelHumid{temperature, ..}) => Some(raw_temp_to_fahrenheit(*temperature)),
+            Self::TempAndRelHumid(RawTempAndRelHumid { temperature, .. }) => {
+                Some(raw_temp_to_fahrenheit(*temperature))
+            }
             Self::MinTemp(u16) => Some(raw_temp_to_fahrenheit(*u16)),
             Self::MaxTemp(u16) => Some(raw_temp_to_fahrenheit(*u16)),
             Self::MinRelHumid(_) => None,
@@ -79,7 +76,9 @@ impl RawDatum {
     /// Get temperature in Centigrade
     pub fn centigrade(&self) -> Option<f32> {
         match self {
-            Self::TempAndRelHumid(RawTempAndRelHumid{temperature, ..}) => Some(raw_temp_to_centigrade(*temperature)),
+            Self::TempAndRelHumid(RawTempAndRelHumid { temperature, .. }) => {
+                Some(raw_temp_to_centigrade(*temperature))
+            }
             Self::MinTemp(u16) => Some(raw_temp_to_centigrade(*u16)),
             Self::MaxTemp(u16) => Some(raw_temp_to_centigrade(*u16)),
             Self::MinRelHumid(_) => None,
@@ -89,7 +88,9 @@ impl RawDatum {
     /// Get relative humidity in percent
     pub fn humidity_percent(&self) -> Option<f32> {
         match self {
-            Self::TempAndRelHumid(RawTempAndRelHumid{humidity, ..}) => Some(raw_rel_humid_to_percent(*humidity)),
+            Self::TempAndRelHumid(RawTempAndRelHumid { humidity, .. }) => {
+                Some(raw_rel_humid_to_percent(*humidity))
+            }
             Self::MinTemp(_) => None,
             Self::MaxTemp(_) => None,
             Self::MinRelHumid(u16) => Some(raw_rel_humid_to_percent(*u16)),
@@ -102,11 +103,8 @@ impl RawDatum {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(PartialEq)]
-pub struct RawTempAndRelHumid{
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RawTempAndRelHumid {
     /// Unprocessed temperature.
     pub temperature: u16,
     /// Unprocessed relative humidity.
@@ -131,9 +129,7 @@ impl RawTempAndRelHumid {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Datum {
     /// Temperature and relative humidity from one-shot or automatic mode.
     TempAndRelHumid(TempAndRelHumid),
@@ -162,10 +158,7 @@ impl From<&RawDatum> for Datum {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TempAndRelHumid {
     /// degrees centigrade
     pub centigrade: f32,
@@ -187,11 +180,8 @@ impl From<&RawTempAndRelHumid> for TempAndRelHumid {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(PartialEq)]
-pub struct Temp{
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Temp {
     /// degrees centigrade
     pub centigrade: f32,
     /// degrees fahrenheit
@@ -210,10 +200,7 @@ impl From<u16> for Temp {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct StatusBits {
     raw: u16,
     /// at least one alert is active
@@ -246,16 +233,36 @@ impl From<u16> for StatusBits {
     fn from(raw: u16) -> Self {
         Self {
             raw,
-            at_least_one_alert: (raw >> STATUS_FIELD_LSBIT_AT_LEAST_ONE_ALERT) & ((1 << STATUS_FIELD_WIDTH_AT_LEAST_ONE_ALERT) - 1) != 0,
-            heater_enabled: (raw >> STATUS_FIELD_LSBIT_HEATER_ENABLED) & ((1 << STATUS_FIELD_WIDTH_HEATER_ENABLED) - 1) != 0,
-            rh_tracking_alert: (raw >> STATUS_FIELD_LSBIT_RH_TRACKING_ALERT) & ((1 << STATUS_FIELD_WIDTH_RH_TRACKING_ALERT) - 1) != 0,
-            t_tracking_alert: (raw >> STATUS_FIELD_LSBIT_T_TRACKING_ALERT) & ((1 << STATUS_FIELD_WIDTH_T_TRACKING_ALERT) - 1) != 0,
-            rh_high_tracking_alert: (raw >> STATUS_FIELD_LSBIT_RH_HIGH_TRACKING_ALERT) & ((1 << STATUS_FIELD_WIDTH_RH_HIGH_TRACKING_ALERT) - 1) != 0,
-            rh_low_tracking_alert: (raw >> STATUS_FIELD_LSBIT_RH_LOW_TRACKING_ALERT) & ((1 << STATUS_FIELD_WIDTH_RH_LOW_TRACKING_ALERT) - 1) != 0,
-            t_high_tracking_alert: (raw >> STATUS_FIELD_LSBIT_T_HIGH_TRACKING_ALERT) & ((1 << STATUS_FIELD_WIDTH_T_HIGH_TRACKING_ALERT) - 1) != 0,
-            t_low_tracking_alert: (raw >> STATUS_FIELD_LSBIT_T_LOW_TRACKING_ALERT) & ((1 << STATUS_FIELD_WIDTH_T_LOW_TRACKING_ALERT) - 1) != 0,
-            reset_since_clear: (raw >> STATUS_FIELD_LSBIT_RESET_SINCE_CLEAR) & ((1 << STATUS_FIELD_WIDTH_RESET_SINCE_CLEAR) - 1) != 0,
-            checksum_failure: (raw >> STATUS_FIELD_LSBIT_CHECKSUM_FAILURE) & ((1 << STATUS_FIELD_WIDTH_CHECKSUM_FAILURE) - 1) != 0,
+            at_least_one_alert: (raw >> STATUS_FIELD_LSBIT_AT_LEAST_ONE_ALERT)
+                & ((1 << STATUS_FIELD_WIDTH_AT_LEAST_ONE_ALERT) - 1)
+                != 0,
+            heater_enabled: (raw >> STATUS_FIELD_LSBIT_HEATER_ENABLED)
+                & ((1 << STATUS_FIELD_WIDTH_HEATER_ENABLED) - 1)
+                != 0,
+            rh_tracking_alert: (raw >> STATUS_FIELD_LSBIT_RH_TRACKING_ALERT)
+                & ((1 << STATUS_FIELD_WIDTH_RH_TRACKING_ALERT) - 1)
+                != 0,
+            t_tracking_alert: (raw >> STATUS_FIELD_LSBIT_T_TRACKING_ALERT)
+                & ((1 << STATUS_FIELD_WIDTH_T_TRACKING_ALERT) - 1)
+                != 0,
+            rh_high_tracking_alert: (raw >> STATUS_FIELD_LSBIT_RH_HIGH_TRACKING_ALERT)
+                & ((1 << STATUS_FIELD_WIDTH_RH_HIGH_TRACKING_ALERT) - 1)
+                != 0,
+            rh_low_tracking_alert: (raw >> STATUS_FIELD_LSBIT_RH_LOW_TRACKING_ALERT)
+                & ((1 << STATUS_FIELD_WIDTH_RH_LOW_TRACKING_ALERT) - 1)
+                != 0,
+            t_high_tracking_alert: (raw >> STATUS_FIELD_LSBIT_T_HIGH_TRACKING_ALERT)
+                & ((1 << STATUS_FIELD_WIDTH_T_HIGH_TRACKING_ALERT) - 1)
+                != 0,
+            t_low_tracking_alert: (raw >> STATUS_FIELD_LSBIT_T_LOW_TRACKING_ALERT)
+                & ((1 << STATUS_FIELD_WIDTH_T_LOW_TRACKING_ALERT) - 1)
+                != 0,
+            reset_since_clear: (raw >> STATUS_FIELD_LSBIT_RESET_SINCE_CLEAR)
+                & ((1 << STATUS_FIELD_WIDTH_RESET_SINCE_CLEAR) - 1)
+                != 0,
+            checksum_failure: (raw >> STATUS_FIELD_LSBIT_CHECKSUM_FAILURE)
+                & ((1 << STATUS_FIELD_WIDTH_CHECKSUM_FAILURE) - 1)
+                != 0,
         }
     }
 }
@@ -302,7 +309,6 @@ impl fmt::Display for StatusBits {
     }
 }
 
-
 /// NIST-traceable serial number of the device.
 ///
 /// The public array is ordered `[NIST ID0, ID1, ID2, ID3, ID4, ID5]`, from
@@ -311,10 +317,7 @@ impl fmt::Display for StatusBits {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SerialNumber(pub [u8; 6]);
 impl fmt::Display for SerialNumber {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -341,10 +344,7 @@ impl AsRef<[u8; 6]> for SerialNumber {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum ManufacturerId {
     /// Texas Instruments
     #[default]

@@ -1,7 +1,7 @@
-#[cfg(feature="defmt")]
-use defmt::Format;
 #[cfg(feature = "bincode")]
 use bincode::{Decode, Encode};
+#[cfg(feature = "defmt")]
+use defmt::Format;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -9,9 +9,7 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum I2cAddr {
     /// ADDR1 = 0, ADDR0 = 0
     Addr00 = 0x44,
@@ -37,9 +35,7 @@ impl I2cAddr {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SampleRate {
     /// Initiate and read a single measurement, returning the device to sleep afterward.
     ///
@@ -62,9 +58,7 @@ pub enum SampleRate {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum LowPowerMode {
     /// lowest noise
     LPM0,
@@ -106,9 +100,7 @@ impl LowPowerMode {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AutoReadTarget {
     /// Most recently completed temperature and relative-humidity sample.
     ///
@@ -132,11 +124,8 @@ pub enum AutoReadTarget {
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(Default)]
-#[derive(PartialEq)]
-pub enum HeaterLevel{
+#[derive(Clone, Debug, Default, PartialEq)]
+pub enum HeaterLevel {
     /// Heater off (post-reset default).
     #[default]
     Off,
@@ -239,9 +228,7 @@ pub(crate) fn reset_state_value(sample_rate: SampleRate, low_power_mode: LowPowe
 #[cfg_attr(feature = "bincode", derive(Encode, Decode))]
 #[cfg_attr(feature = "defmt", derive(Format))]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Command {
     AutoExit,
     AutoReadTempAndRelHumid,
@@ -249,7 +236,7 @@ pub(crate) enum Command {
     AutoReadMaxTemp,
     AutoReadMinRelHumid,
     AutoReadMaxRelHumid,
-    
+
     #[allow(unused)]
     WriteSetLowAlert,
     #[allow(unused)]
@@ -330,7 +317,8 @@ impl Command {
             Self::ManufacturerID => 0x3781_u16,
 
             Self::ResetState => 0x61bb_u16,
-        }.to_be_bytes()
+        }
+        .to_be_bytes()
     }
 }
 
